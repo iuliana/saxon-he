@@ -1,3 +1,7 @@
+Most of the open source code in the Saxon product is governed by the Mozilla Public
+License version 2.0, which is reproduced below.
+
+
 Mozilla Public License Version 2.0
 ==================================
 
