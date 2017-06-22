@@ -1,0 +1,68 @@
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<!-- Copyright (c) 2013 Saxonica Limited. -->
+<!-- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. -->
+<!-- If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<!-- This Source Code Form is "Incompatible With Secondary Licenses", as defined by the Mozilla Public License, v. 2.0. -->
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+
+<html>
+
+<head>
+<title>Package overview for net.sf.saxon.evpull</title>
+</head>
+
+<body>
+
+<p>This package provides classes that implement a StAX-like pull pipeline in which a recieving component
+makes calls on a provider component to supply information from the XML stream one event at a time. The
+object that is supplied in response to these calls is a {@link net.sf.saxon.evpull.PullEvent}, and
+a component that can be invoked to deliver a sequence of these objects is a {@link net.sf.saxon.evpull.EventIterator}.</p>
+
+<p>An {@link net.sf.saxon.evpull.EventIterator} is itself a {@link net.sf.saxon.evpull.PullEvent}, so an event provider
+may return a sequence of events in response to a single call by returning an iterator. A sequence of events containing
+no iterators is referred to as a <i>flat</i> sequence, and any sequence of events can be converted to a flat
+sequence by inserting an {@link net.sf.saxon.evpull.EventStackIterator} into the pipeline.</p>
+
+<p>Pull processing is not used extensively in Saxon, and is generally not used at all unless explicitly
+requested. It can be requested, for example, by supplying a {@link net.sf.saxon.evpull.PullEventSource} object to an interface
+that expects an XML document to be supplied as a JAXP {@link javax.xml.transform.Source}. It is also used
+in XQJ when methods such as {@link javax.xml.xquery.XQDataFactory#createItemFromDocument} are used
+to construct an XML document from a supplied {@link javax.xml.stream.XMLStreamReader}. In such cases
+Saxon uses the class {@link net.sf.saxon.evpull.StaxToEventBridge} to convert StAX events to its own
+{@link net.sf.saxon.evpull.PullEvent} events. Conversion in the opposite direction uses the class
+{@link net.sf.saxon.evpull.EventToStaxBridge}.</p>
+
+<p>It is possible to request pull-mode evaluation of XQuery code using the method
+{@link net.sf.saxon.query.XQueryExpression#iterateEvents}. This causes any document and element
+node constructors to be evaluated in pull mode, returning events representing start/end document/element
+rather than actually constructing the result tree in memory. The relevant expressions in the expression
+tree provide an <code>iterateEvents()</code> method to support this mode of execution.</p>
+
+<p>A sequence of events is said to be <i>composed</i> if it consists entirely of items (that is, a node
+is passed as a single event, rather than by walking the tree); it is said to be <i>decomposed</i>
+if if consists entirely of StAX-like events. In general, the classes in this package handle sequences
+that mix both styles. A fully-composed sequence, however, is normally handled using the
+    {@link net.sf.saxon.om.SequenceIterator} interface rather than by the classes in this package.
+    The {@link net.sf.saxon.evpull.SequenceComposer} returns a full composed event stream
+    from a decomposed or mixed stream, constructing tree fragments when
+necessary to achieve this; the {@link net.sf.saxon.evpull.Decomposer}
+does the inverse, walking any tree fragments to deliver the corresponding start-element and end-element
+events.</p>
+
+<p>The class {@link net.sf.saxon.evpull.EventIteratorOverSequence} converts a stream of items obtained
+from a {@link net.sf.saxon.om.SequenceIterator} into a composed stream of {@link net.sf.saxon.evpull.PullEvent} events.</p>
+
+<p>The class {@link net.sf.saxon.evpull.EventIteratorToReceiver} reads a sequence of events from a pull pipeline
+and outputs the same sequence of events to a push pipeline using the {@link net.sf.saxon.event.Receiver}
+interface.</p>
+
+<p>The package {@link net.sf.saxon.pull} represents an earlier attempt at pull-mode processing in Saxon.
+It is retained because it provides some capabilities not yet present in this package.</p>
+
+<hr>
+
+<p align="center"><i>Michael H. Kay<br/>
+Saxonica Limited<br/>
+30 July 2010</i></p>
+</body>
+</html>

@@ -1,0 +1,1096 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Copyright (c) 2013 Saxonica Limited.
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+// If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// This Source Code Form is "Incompatible With Secondary Licenses", as defined by the Mozilla Public License, v. 2.0.
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+package net.sf.saxon.type;
+
+import net.sf.saxon.Configuration;
+import net.sf.saxon.expr.Expression;
+import net.sf.saxon.expr.Literal;
+import net.sf.saxon.expr.StaticContext;
+import net.sf.saxon.expr.XPathContext;
+import net.sf.saxon.expr.instruct.ValueOf;
+import net.sf.saxon.lib.ConversionRules;
+import net.sf.saxon.lib.NamespaceConstant;
+import net.sf.saxon.om.*;
+import net.sf.saxon.trans.XPathException;
+import net.sf.saxon.tree.iter.EmptyIterator;
+import net.sf.saxon.value.*;
+import net.sf.saxon.value.StringValue;
+
+import java.io.Serializable;
+import java.util.Set;
+
+/**
+ * This class represents a built-in atomic type, which may be either a primitive type
+ * (such as xs:decimal or xs:anyURI) or a derived type (such as xs:ID or xs:dayTimeDuration).
+ */
+
+public class BuiltInAtomicType implements AtomicType, Serializable {
+
+    int fingerprint;
+    int baseFingerprint;
+    int primitiveFingerprint;
+    boolean ordered = false;
+
+    /*@NotNull*/ public static BuiltInAtomicType ANY_ATOMIC = makeAtomicType(StandardNames.XS_ANY_ATOMIC_TYPE, AnySimpleType.getInstance(), true);
+
+    /*@NotNull*/ public static BuiltInAtomicType NUMERIC = makeAtomicType(StandardNames.XS_NUMERIC, ANY_ATOMIC, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType STRING = makeAtomicType(StandardNames.XS_STRING, ANY_ATOMIC, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType BOOLEAN = makeAtomicType(StandardNames.XS_BOOLEAN, ANY_ATOMIC, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType DURATION = makeAtomicType(StandardNames.XS_DURATION, ANY_ATOMIC, false);
+
+    /*@NotNull*/ public static BuiltInAtomicType DATE_TIME = makeAtomicType(StandardNames.XS_DATE_TIME, ANY_ATOMIC, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType DATE = makeAtomicType(StandardNames.XS_DATE, ANY_ATOMIC, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType TIME = makeAtomicType(StandardNames.XS_TIME, ANY_ATOMIC, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType G_YEAR_MONTH = makeAtomicType(StandardNames.XS_G_YEAR_MONTH, ANY_ATOMIC, false);
+
+    /*@NotNull*/ public static BuiltInAtomicType G_MONTH = makeAtomicType(StandardNames.XS_G_MONTH, ANY_ATOMIC, false);
+
+    /*@NotNull*/ public static BuiltInAtomicType G_MONTH_DAY = makeAtomicType(StandardNames.XS_G_MONTH_DAY, ANY_ATOMIC, false);
+
+    /*@NotNull*/ public static BuiltInAtomicType G_YEAR = makeAtomicType(StandardNames.XS_G_YEAR, ANY_ATOMIC, false);
+
+    /*@NotNull*/ public static BuiltInAtomicType G_DAY = makeAtomicType(StandardNames.XS_G_DAY, ANY_ATOMIC, false);
+
+    /*@NotNull*/ public static BuiltInAtomicType HEX_BINARY = makeAtomicType(StandardNames.XS_HEX_BINARY, ANY_ATOMIC, false);
+
+    /*@NotNull*/ public static BuiltInAtomicType BASE64_BINARY = makeAtomicType(StandardNames.XS_BASE64_BINARY, ANY_ATOMIC, false);
+
+    /*@NotNull*/ public static BuiltInAtomicType ANY_URI = makeAtomicType(StandardNames.XS_ANY_URI, ANY_ATOMIC, true);;
+
+    /*@NotNull*/ public static BuiltInAtomicType QNAME = makeAtomicType(StandardNames.XS_QNAME, ANY_ATOMIC, false);
+
+    /*@NotNull*/ public static BuiltInAtomicType NOTATION = makeAtomicType(StandardNames.XS_NOTATION, ANY_ATOMIC, false);
+
+    /*@NotNull*/ public static BuiltInAtomicType UNTYPED_ATOMIC = makeAtomicType(StandardNames.XS_UNTYPED_ATOMIC, ANY_ATOMIC, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType DECIMAL = makeAtomicType(StandardNames.XS_DECIMAL, NUMERIC, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType FLOAT = makeAtomicType(StandardNames.XS_FLOAT, NUMERIC, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType DOUBLE = makeAtomicType(StandardNames.XS_DOUBLE, NUMERIC, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType INTEGER = makeAtomicType(StandardNames.XS_INTEGER, DECIMAL, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType NON_POSITIVE_INTEGER = makeAtomicType(StandardNames.XS_NON_POSITIVE_INTEGER, INTEGER, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType NEGATIVE_INTEGER = makeAtomicType(StandardNames.XS_NEGATIVE_INTEGER, NON_POSITIVE_INTEGER, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType LONG = makeAtomicType(StandardNames.XS_LONG, INTEGER, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType INT = makeAtomicType(StandardNames.XS_INT, LONG, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType SHORT = makeAtomicType(StandardNames.XS_SHORT, INT, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType BYTE = makeAtomicType(StandardNames.XS_BYTE, SHORT, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType NON_NEGATIVE_INTEGER = makeAtomicType(StandardNames.XS_NON_NEGATIVE_INTEGER, INTEGER, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType POSITIVE_INTEGER = makeAtomicType(StandardNames.XS_POSITIVE_INTEGER, NON_NEGATIVE_INTEGER, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType UNSIGNED_LONG = makeAtomicType(StandardNames.XS_UNSIGNED_LONG, NON_NEGATIVE_INTEGER, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType UNSIGNED_INT = makeAtomicType(StandardNames.XS_UNSIGNED_INT, UNSIGNED_LONG, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType UNSIGNED_SHORT = makeAtomicType(StandardNames.XS_UNSIGNED_SHORT, UNSIGNED_INT, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType UNSIGNED_BYTE = makeAtomicType(StandardNames.XS_UNSIGNED_BYTE, UNSIGNED_SHORT, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType YEAR_MONTH_DURATION = makeAtomicType(StandardNames.XS_YEAR_MONTH_DURATION, DURATION, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType DAY_TIME_DURATION = makeAtomicType(StandardNames.XS_DAY_TIME_DURATION, DURATION, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType NORMALIZED_STRING = makeAtomicType(StandardNames.XS_NORMALIZED_STRING, STRING, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType TOKEN = makeAtomicType(StandardNames.XS_TOKEN, NORMALIZED_STRING, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType LANGUAGE = makeAtomicType(StandardNames.XS_LANGUAGE, TOKEN, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType NAME = makeAtomicType(StandardNames.XS_NAME, TOKEN, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType NMTOKEN = makeAtomicType(StandardNames.XS_NMTOKEN, TOKEN, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType NCNAME = makeAtomicType(StandardNames.XS_NCNAME, NAME, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType ID = makeAtomicType(StandardNames.XS_ID, NCNAME, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType IDREF = makeAtomicType(StandardNames.XS_IDREF, NCNAME, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType ENTITY = makeAtomicType(StandardNames.XS_ENTITY, NCNAME, true);
+
+    /*@NotNull*/ public static BuiltInAtomicType DATE_TIME_STAMP = makeAtomicType(StandardNames.XS_DATE_TIME_STAMP, DATE_TIME, true);
+
+    static {
+        
+    }
+
+    private BuiltInAtomicType(int fingerprint) {
+        this.fingerprint = fingerprint;
+    }
+
+    /**
+     * Get the local name of this type
+     *
+     * @return the local name of this type definition, if it has one. Return null in the case of an
+     *         anonymous type.
+     */
+
+    public String getName() {
+        if (fingerprint == StandardNames.XS_NUMERIC) {
+            return "numeric";
+        } else {
+            return StandardNames.getLocalName(fingerprint);
+        }
+    }
+
+    /**
+     * Get the target namespace of this type
+     *
+     * @return the target namespace of this type definition, if it has one. Return null in the case
+     *         of an anonymous type, and in the case of a global type defined in a no-namespace schema.
+     */
+
+    public String getTargetNamespace() {
+        return NamespaceConstant.SCHEMA;
+    }
+
+    /**
+     * Get the name of this type as an EQName, that is, a string in the format Q{uri}local.
+     *
+     * @return an EQName identifying the type.
+     */
+    public String getEQName() {
+        return "Q{" + NamespaceConstant.SCHEMA + "}" + getName();
+    }
+
+    /**
+     * Determine whether the type is abstract, that is, whether it cannot have instances that are not also
+     * instances of some concrete subtype
+     */
+
+    public boolean isAbstract() {
+        switch (fingerprint) {
+            case StandardNames.XS_NOTATION:
+            case StandardNames.XS_ANY_ATOMIC_TYPE:
+            case StandardNames.XS_NUMERIC:
+            case StandardNames.XS_ANY_SIMPLE_TYPE:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Return true if this is an external object type, that is, a Saxon-defined type for external
+     * Java or .NET objects
+     */
+
+    public boolean isExternalType() {
+        return false;
+    }
+
+    /**
+     * Determine whether this is a built-in type or a user-defined type
+     */
+
+    public boolean isBuiltInType() {
+        return true;
+    }
+
+    /**
+     * Get the name of this type as a StructuredQName, unless the type is anonymous, in which case
+     * return null
+     * @return the name of the atomic type, or null if the type is anonymous.
+     */
+
+    /*@NotNull*/ public StructuredQName getTypeName() {
+        return new StructuredQName(
+                StandardNames.getPrefix(fingerprint),
+                StandardNames.getURI(fingerprint),
+                StandardNames.getLocalName(fingerprint)
+        );
+    }
+
+    /**
+     * Get the redefinition level. This is zero for a component that has not been redefined;
+     * for a redefinition of a level-0 component, it is 1; for a redefinition of a level-N
+     * component, it is N+1. This concept is used to support the notion of "pervasive" redefinition:
+     * if a component is redefined at several levels, the top level wins, but it is an error to have
+     * two versions of the component at the same redefinition level.
+     * @return the redefinition level
+     */
+
+    public int getRedefinitionLevel() {
+        return 0;
+    }
+
+    /**
+     * Determine whether the atomic type is ordered, that is, whether less-than and greater-than comparisons
+     * are permitted
+     * @param optimistic if true, the function takes an optimistic view, returning true if ordering comparisons
+     * are available for some subtype. This mainly affects xs:duration, where the function returns true if
+     * optimistic is true, false if it is false.
+     * @return true if ordering operations are permitted
+     */
+
+    public boolean isOrdered(boolean optimistic) {
+        return ordered || (optimistic && (this == BuiltInAtomicType.DURATION || this == BuiltInAtomicType.ANY_ATOMIC));
+    }
+
+
+    /**
+     * Get the URI of the schema document where the type was originally defined.
+     *
+     * @return the URI of the schema document. Returns null if the information is unknown or if this
+     *         is a built-in type
+     */
+
+    /*@Nullable*/ public String getSystemId() {
+        return null;
+    }
+
+    /**
+     * Determine whether the atomic type is numeric
+     *
+     * @return true if the type is a built-in numeric type
+     */
+
+    public boolean isPrimitiveNumeric() {
+        switch (fingerprint) {
+        case StandardNames.XS_INTEGER:
+        case StandardNames.XS_DECIMAL:
+        case StandardNames.XS_DOUBLE:
+        case StandardNames.XS_FLOAT:
+        case StandardNames.XS_NUMERIC:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    /**
+     * Get the validation status - always valid
+     */
+    public final int getValidationStatus() {
+        return VALIDATED;
+    }
+
+    /**
+     * Returns the value of the 'block' attribute for this type, as a bit-significant
+     * integer with fields such as {@link SchemaType#DERIVATION_LIST} and {@link SchemaType#DERIVATION_EXTENSION}
+     *
+     * @return the value of the 'block' attribute for this type
+     */
+
+    public final int getBlock() {
+        return 0;
+    }
+
+    /**
+     * Gets the integer code of the derivation method used to derive this type from its
+     * parent. Returns zero for primitive types.
+     *
+     * @return a numeric code representing the derivation method, for example {@link SchemaType#DERIVATION_RESTRICTION}
+     */
+
+    public final int getDerivationMethod() {
+        return SchemaType.DERIVATION_RESTRICTION;
+    }
+
+    /**
+     * Determines whether derivation (of a particular kind)
+     * from this type is allowed, based on the "final" property
+     *
+     * @param derivation the kind of derivation, for example {@link SchemaType#DERIVATION_LIST}
+     * @return true if this kind of derivation is allowed
+     */
+
+    public final boolean allowsDerivation(int derivation) {
+        return true;
+    }
+
+    /**
+     * Get the types of derivation that are not permitted, by virtue of the "final" property.
+     *
+     * @return the types of derivation that are not permitted, as a bit-significant integer
+     *         containing bits such as {@link net.sf.saxon.type.SchemaType#DERIVATION_EXTENSION}
+     */
+    public int getFinalProhibitions() {
+        return 0;
+    }
+
+    /**
+     * Set the base type of this type
+     *
+     * @param baseFingerprint the namepool fingerprint of the name of the base type
+     */
+
+    public final void setBaseTypeFingerprint(int baseFingerprint) {
+        this.baseFingerprint = baseFingerprint;
+    }
+
+    /**
+     * Get the fingerprint of the name of this type
+     *
+     * @return the fingerprint. Returns an invented fingerprint for an anonymous type.
+     */
+
+    public int getFingerprint() {
+        return fingerprint;
+    }
+
+    /**
+     * Get the namecode of the name of this type. This includes the prefix from the original
+     * type declaration: in the case of built-in types, there may be a conventional prefix
+     * or there may be no prefix.
+     */
+
+    public int getNameCode() {
+        return fingerprint;
+    }
+
+    /**
+     * Get the name of the type as a QName
+     *
+     * @return a StructuredQName containing the name of the type. The conventional prefix "xs" is used
+     *         to represent the XML Schema namespace
+     */
+
+    /*@NotNull*/ public StructuredQName getQualifiedName() {
+        return new StructuredQName("xs", NamespaceConstant.SCHEMA, StandardNames.getLocalName(fingerprint));
+    }
+
+    /**
+     * Get the display name of the type: that is, a lexical QName with an arbitrary prefix
+     *
+     * @return a lexical QName identifying the type
+     */
+
+    public String getDisplayName() {
+        if (fingerprint == StandardNames.XS_NUMERIC) {
+            return "numeric";
+        } else {
+            return StandardNames.getDisplayName(fingerprint);
+        }
+    }
+
+
+    /**
+     * Ask whether the atomic type is a primitive type.  The primitive types are
+     * the 19 primitive types of XML Schema, plus xs:integer, xs:dayTimeDuration and xs:yearMonthDuration;
+     * xs:untypedAtomic; and all supertypes of these (xs:anyAtomicType, xs:numeric, ...)
+     *
+     * @return true if the type is considered primitive under the above rules
+     */
+
+    public boolean isPrimitiveType() {
+        return Type.isPrimitiveType(fingerprint);
+    }
+
+    /**
+     * Ask whether this SchemaType is a complex type
+     *
+     * @return true if this SchemaType is a complex type
+     */
+
+    public final boolean isComplexType() {
+        return false;
+    }
+
+    /**
+     * Ask whether this is an anonymous type
+     *
+     * @return true if this SchemaType is an anonymous type
+     */
+
+    public boolean isAnonymousType() {
+        return false;
+    }
+
+    /**
+     * Ask whether this is a plain type (a type whose instances are always atomic values)
+     * @return true
+     */
+
+    public boolean isPlainType() {
+        return true;
+    }
+
+    /**
+     * Returns the base type that this type inherits from. This method can be used to get the
+     * base type of a type that is known to be valid.
+     * If this type is a Simpletype that is a built in primitive type then null is returned.
+     *
+     * @return the base type.
+     * @throws IllegalStateException if this type is not valid.
+     */
+
+    /*@Nullable*/ public final SchemaType getBaseType() {
+        if (baseFingerprint == -1) {
+            return null;
+        } else {
+            return BuiltInType.getSchemaType(baseFingerprint);
+        }
+    }
+
+    /**
+     * Test whether a given item conforms to this type
+     *
+     * @param item    The item to be tested
+     * @param context the XPath dynamic evaluation context
+     * @return true if the item is an instance of this type; false otherwise
+     */
+    public boolean matches(Item item, /*@NotNull*/ XPathContext context) {
+        return matchesItem(item, false, context.getConfiguration());
+    }
+
+    /**
+     * Test whether a given item conforms to this type
+     *
+     * @param item              The item to be tested
+     * @param allowURIPromotion true if we regard a URI as effectively a subtype of String
+     * @param config            the Saxon configuration (used to locate the type hierarchy cache)
+     * @return true if the item is an instance of this type; false otherwise
+     */
+
+    public boolean matchesItem(Item item, boolean allowURIPromotion, /*@NotNull*/ Configuration config) {
+        if (item instanceof AtomicValue) {
+            AtomicValue value = (AtomicValue)item;
+            // Try to match primitive types first
+            if (value.getPrimitiveType() == this) {
+                return true;
+            }
+            AtomicType type = value.getItemType();
+            if (type.getFingerprint() == getFingerprint()) {
+                // note, with compiled stylesheets one can have two objects representing
+                // the same type, so comparing identity is not safe
+                return true;
+            }
+            final TypeHierarchy th = config.getTypeHierarchy();
+            boolean ok = th.isSubType(type, this);
+            if (ok) {
+                return true;
+            }
+            if (allowURIPromotion && getFingerprint() == StandardNames.XS_STRING && th.isSubType(type, BuiltInAtomicType.ANY_URI)) {
+                // allow promotion from anyURI to string
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get the type from which this item type is derived by restriction. This
+     * is the supertype in the XPath type heirarchy, as distinct from the Schema
+     * base type: this means that the supertype of xs:boolean is xs:anyAtomicType,
+     * whose supertype is item() (rather than xs:anySimpleType).
+     *
+     * @param th the type hierarchy cache, not used in this implementation
+     * @return the supertype, or null if this type is item()
+     */
+
+    /*@NotNull*/ public ItemType getSuperType(TypeHierarchy th) {
+        SchemaType base = getBaseType();
+        if (base instanceof AnySimpleType) {
+            return AnyItemType.getInstance();
+        } else {
+            return (ItemType)base;
+        }
+    }
+
+    /**
+     * Get the primitive item type corresponding to this item type. For item(),
+     * this is Type.ITEM. For node(), it is Type.NODE. For specific node kinds,
+     * it is the value representing the node kind, for example Type.ELEMENT.
+     * For anyAtomicValue it is Type.ATOMIC_VALUE. For numeric it is Type.NUMBER.
+     * For other atomic types it is the primitive type as defined in XML Schema,
+     * except that INTEGER is considered to be a primitive type.
+     */
+
+    /*@NotNull*/
+    public ItemType getPrimitiveItemType() {
+        if (isPrimitiveType()) {
+            return this;
+        } else {
+            ItemType s = (ItemType)getBaseType();
+            if (s.isPlainType()) {
+                return s.getPrimitiveItemType();
+            } else {
+                return this;
+            }
+        }
+    }
+
+    /**
+     * Get the primitive type corresponding to this item type. For item(),
+     * this is Type.ITEM. For node(), it is Type.NODE. For specific node kinds,
+     * it is the value representing the node kind, for example Type.ELEMENT.
+     * For anyAtomicValue it is Type.ATOMIC_VALUE. For numeric it is Type.NUMBER.
+     * For other atomic types it is the primitive type as defined in XML Schema,
+     * except that INTEGER is considered to be a primitive type.
+     */
+
+    public int getPrimitiveType() {
+        return primitiveFingerprint;
+    }
+
+    /**
+     * Determine whether this type is supported in a basic XSLT 2.0 processor (all types are
+     * allowed in a basic XSLT 3.0 processor)
+     *
+     * @return true if this type is permitted in a basic XSLT 2.0 processor
+     */
+
+    public boolean isAllowedInBasicXSLT() {
+        return (isPrimitiveType() && getFingerprint() != StandardNames.XS_NOTATION);
+    }
+
+    /**
+     * Determine whether this type is supported when using XSD 1.0
+     * @return true if this type is permitted in XSD 1.0
+     */
+
+    public boolean isAllowedInXSD10() {
+        return (getFingerprint() != StandardNames.XS_DATE_TIME_STAMP);
+    }
+
+    public String toString() {
+        return getDisplayName();
+    }
+
+    /**
+     * Get the item type of the atomic values that will be produced when an item
+     * of this type is atomized
+     */
+
+    /*@NotNull*/ public AtomicType getAtomizedItemType() {
+        return this;
+    }
+
+    /**
+     * Ask whether values of this type are atomizable
+     * @return true unless it is known that these items will be elements with element-only
+     *         content, in which case return false
+     */
+
+    public boolean isAtomizable() {
+        return true;
+    }
+
+    /**
+     * Returns the base type that this type inherits from. This method can be used to get the
+     * base type of a type that is known to be valid.
+     * If this type is a Simpletype that is a built in primitive type then null is returned.
+     *
+     * @return the base type.
+     * @throws IllegalStateException if this type is not valid.
+     */
+
+    /*@Nullable*/ public SchemaType getKnownBaseType() {
+        return getBaseType();
+    }
+
+    /**
+     * Test whether this is the same type as another type. They are considered to be the same type
+     * if they are derived from the same type definition in the original XML representation (which
+     * can happen when there are multiple includes of the same file)
+     */
+
+    public boolean isSameType(/*@NotNull*/ SchemaType other) {
+        return other.getFingerprint() == getFingerprint();
+    }
+
+    public String getDescription() {
+        return getDisplayName();
+    }
+
+
+    /**
+     * Check that this type is validly derived from a given type
+     *
+     * @param type  the type from which this type is derived
+     * @param block the derivations that are blocked by the relevant element declaration
+     * @throws SchemaException if the derivation is not allowed
+     */
+
+    public void checkTypeDerivationIsOK(/*@NotNull*/ SchemaType type, int block) throws SchemaException {
+        if (type == AnySimpleType.getInstance()) {
+            // OK
+        } else if (isSameType(type)) {
+            // OK
+        } else {
+            SchemaType base = getBaseType();
+            if (base == null) {
+                throw new SchemaException("Type " + getDescription() +
+                        " is not validly derived from type " + type.getDescription());
+            }
+            try {
+                base.checkTypeDerivationIsOK(type, block);
+            } catch (SchemaException se) {
+                throw new SchemaException("Type " + getDescription() +
+                        " is not validly derived from type " + type.getDescription());
+            }
+        }
+    }
+
+    /**
+     * Returns true if this SchemaType is a SimpleType
+     *
+     * @return true (always)
+     */
+
+    public final boolean isSimpleType() {
+        return true;
+    }
+
+    /**
+     * Test whether this Simple Type is an atomic type
+     *
+     * @return true, this is an atomic type
+     */
+
+    public boolean isAtomicType() {
+        return true;
+    }
+
+    /**
+     * Ask whether this type is an ID type. This is defined to be any simple type
+     * who typed value may contain atomic values of type xs:ID: that is, it includes types derived
+     * from ID by restriction, list, or union. Note that for a node to be treated
+     * as an ID, its typed value must be a *single* atomic value of type ID; the type of the
+     * node, however, can still allow a list.
+     */
+
+    public boolean isIdType() {
+        return fingerprint == StandardNames.XS_ID;
+    }
+
+    /**
+     * Ask whether this type is an IDREF or IDREFS type. This is defined to be any simple type
+     * who typed value may contain atomic values of type xs:IDREF: that is, it includes types derived
+     * from IDREF or IDREFS by restriction, list, or union
+     */
+
+    public boolean isIdRefType() {
+        return fingerprint == StandardNames.XS_IDREF;
+    }
+
+    /**
+     * Returns true if this type is derived by list, or if it is derived by restriction
+     * from a list type, or if it is a union that contains a list as one of its members
+     *
+     * @return true if this is a list type
+     */
+
+    public boolean isListType() {
+        return false;
+    }
+
+    /**
+     * Return true if this type is a union type (that is, if its variety is union)
+     *
+     * @return true for a union type
+     */
+
+    public boolean isUnionType() {
+        return false;
+    }
+
+    /**
+     * Determine the whitespace normalization required for values of this type
+     *
+     * @return one of PRESERVE, REPLACE, COLLAPSE
+     */
+
+    public int getWhitespaceAction() {
+        switch (getFingerprint()) {
+            case StandardNames.XS_STRING:
+                return Whitespace.PRESERVE;
+            case StandardNames.XS_NORMALIZED_STRING:
+                return Whitespace.REPLACE;
+            default:
+                return Whitespace.COLLAPSE;
+        }
+    }
+
+    /**
+     * Returns the built-in base type this type is derived from.
+     *
+     * @return the first built-in type found when searching up the type hierarchy
+     */
+    /*@Nullable*/ public SchemaType getBuiltInBaseType() {
+        BuiltInAtomicType base = this;
+        while ((base != null) && (base.getFingerprint() > 1023)) {
+            base = (BuiltInAtomicType)base.getBaseType();
+        }
+        return base;
+    }
+
+    /**
+     * Test whether this simple type is namespace-sensitive, that is, whether
+     * it is derived from xs:QName or xs:NOTATION
+     *
+     * @return true if this type is derived from xs:QName or xs:NOTATION
+     */
+
+    public boolean isNamespaceSensitive() {
+        BuiltInAtomicType base = this;
+        int fp = base.getFingerprint();
+        while (fp > 1023) {
+            base = (BuiltInAtomicType)base.getBaseType();
+            fp = base.getFingerprint();
+        }
+
+        return fp == StandardNames.XS_QNAME || fp == StandardNames.XS_NOTATION;
+    }
+
+    /**
+     * Check whether a given input string is valid according to this SimpleType
+     *
+     * @param value       the input string to be checked
+     * @param nsResolver  a namespace resolver used to resolve namespace prefixes if the type
+     *                    is namespace sensitive. The value supplied may be null; in this case any namespace-sensitive
+     *                    content will throw an UnsupportedOperationException.
+     * @param rules
+     * @return XPathException if the value is invalid. Note that the exception is returned rather than being thrown.
+     *         Returns null if the value is valid.
+     * @throws UnsupportedOperationException if the type is namespace-sensitive and no namespace
+     *                                       resolver is supplied
+     */
+
+    /*@Nullable*/ public ValidationFailure validateContent(/*@NotNull*/ CharSequence value, /*@Nullable*/ NamespaceResolver nsResolver,
+                                             /*@NotNull*/ ConversionRules rules) {
+        int f = getFingerprint();
+        if (f == StandardNames.XS_STRING ||
+                f == StandardNames.XS_ANY_SIMPLE_TYPE ||
+                f == StandardNames.XS_UNTYPED_ATOMIC ||
+                f == StandardNames.XS_ANY_ATOMIC_TYPE) {
+            return null;
+        }
+        StringConverter converter = rules.getStringConverter(this);
+        if (isNamespaceSensitive()) {
+            if (nsResolver == null) {
+                throw new UnsupportedOperationException("Cannot validate a QName without a namespace resolver");
+            }
+            converter.setNamespaceResolver(nsResolver);
+            ConversionResult result = converter.convertString(value);
+            if (result instanceof ValidationFailure) {
+                return (ValidationFailure)result;
+            }
+            if (fingerprint == StandardNames.XS_NOTATION) {
+                NotationValue nv = (NotationValue)result;
+                // This check added in 9.3. The XSLT spec says that this check should not be performed during
+                // validation. However, this appears to be based on an incorrect assumption: see spec bug 6952
+                if (!rules.isDeclaredNotation(nv.getNamespaceURI(), nv.getLocalName())) {
+                    return new ValidationFailure("Notation {" + nv.getNamespaceURI() + "}" +
+                            nv.getLocalName() + " is not declared in the schema");
+                }
+            }
+            return null;
+        } else {
+            return converter.validate(value);
+        }
+    }
+
+    /**
+     * Get the typed value of a node that is annotated with this schema type.
+     * @param node the node whose typed value is required
+     * @return the typed value.
+     * @since 8.5
+     */
+
+    public AtomicSequence atomize(/*@NotNull*/ NodeInfo node) throws XPathException {
+        // Fast path for common cases
+        CharSequence stringValue = node.getStringValueCS();
+        if (stringValue.length() == 0 && node.isNilled()) {
+            return new AtomicArray(EmptyIterator.emptyIterator());
+        }
+        if (fingerprint == StandardNames.XS_STRING) {
+            return StringValue.makeStringValue(stringValue);
+        } else if (fingerprint == StandardNames.XS_UNTYPED_ATOMIC) {
+            return new UntypedAtomicValue(stringValue);
+        }
+        final Configuration config = node.getConfiguration();
+        StringConverter converter = config.getConversionRules().getStringConverter(this);
+        if (isNamespaceSensitive()) {
+            converter.setNamespaceResolver(new InscopeNamespaceResolver(node));
+        }
+        return converter.convertString(stringValue).asAtomic();
+    }
+
+    /**
+     * Get the typed value corresponding to a given string value, assuming it is
+     * valid against this type (and that the containing node is not nilled)
+     *
+     *
+     * @param value       the string value
+     * @param resolver    a namespace resolver used to resolve any namespace prefixes appearing
+     *                    in the content of values. Can supply null, in which case any namespace-sensitive content
+     *                    will be rejected.
+     * @param rules
+     * @return an iterator over the atomic sequence comprising the typed value. The objects
+     *         returned by this SequenceIterator will all be of type {@link AtomicValue}
+     * @throws ValidationException This method should be called only if it is known that the value is
+     * valid. If the value is not valid, there is no guarantee that this method will perform validation,
+     * but if it does detect a validity error, then it MAY throw a ValidationException.
+     */
+
+    /*@NotNull*/ public AtomicSequence getTypedValue(CharSequence value, NamespaceResolver resolver, /*@NotNull*/ ConversionRules rules)
+            throws ValidationException {
+        // Fast path for common cases
+        if (fingerprint == StandardNames.XS_STRING) {
+            return StringValue.makeStringValue(value);
+        } else if (fingerprint == StandardNames.XS_UNTYPED_ATOMIC) {
+            return new UntypedAtomicValue(value);
+        }
+        StringConverter converter = rules.getStringConverter(this);
+        if (isNamespaceSensitive()) {
+            converter.setNamespaceResolver(resolver);
+        }
+        return converter.convertString(value).asAtomic();
+    }
+
+    /**
+     * Two types are equal if they have the same fingerprint.
+     * Note: it is normally safe to use ==, because we always use the static constants, one instance
+     * for each built in atomic type. However, after serialization and deserialization a different instance
+     * can appear.
+     */
+
+    public boolean equals(/*@NotNull*/ Object obj) {
+        return obj instanceof BuiltInAtomicType &&
+                getFingerprint() == ((BuiltInAtomicType)obj).getFingerprint();
+    }
+
+    /**
+     * The fingerprint can be used as a hashcode
+     */
+
+    public int hashCode() {
+        return getFingerprint();
+    }
+
+
+    /**
+     * Validate that a primitive atomic value is a valid instance of a type derived from the
+     * same primitive type.
+     *
+     * @param primValue    the value in the value space of the primitive type.
+     * @param lexicalValue the value in the lexical space. If null, the string value of primValue
+     *                     is used. This value is checked against the pattern facet (if any)
+     * @param rules
+     * @return null if the value is valid; otherwise, a ValidationFailure object indicating
+     *         the nature of the error.
+     * @throws UnsupportedOperationException in the case of an external object type
+     */
+
+    /*@Nullable*/ public ValidationFailure validate(/*@NotNull*/ AtomicValue primValue, CharSequence lexicalValue, ConversionRules rules) {
+        switch (fingerprint) {
+            case StandardNames.XS_NUMERIC:
+            case StandardNames.XS_STRING:
+            case StandardNames.XS_BOOLEAN:
+            case StandardNames.XS_DURATION:
+            case StandardNames.XS_DATE_TIME:
+            case StandardNames.XS_DATE:
+            case StandardNames.XS_TIME:
+            case StandardNames.XS_G_YEAR_MONTH:
+            case StandardNames.XS_G_MONTH:
+            case StandardNames.XS_G_MONTH_DAY:
+            case StandardNames.XS_G_YEAR:
+            case StandardNames.XS_G_DAY:
+            case StandardNames.XS_HEX_BINARY:
+            case StandardNames.XS_BASE64_BINARY:
+            case StandardNames.XS_ANY_URI:
+            case StandardNames.XS_QNAME:
+            case StandardNames.XS_NOTATION:
+            case StandardNames.XS_UNTYPED_ATOMIC:
+            case StandardNames.XS_DECIMAL:
+            case StandardNames.XS_FLOAT:
+            case StandardNames.XS_DOUBLE:
+            case StandardNames.XS_INTEGER:
+                return null;
+            case StandardNames.XS_NON_POSITIVE_INTEGER:
+            case StandardNames.XS_NEGATIVE_INTEGER:
+            case StandardNames.XS_LONG:
+            case StandardNames.XS_INT:
+            case StandardNames.XS_SHORT:
+            case StandardNames.XS_BYTE:
+            case StandardNames.XS_NON_NEGATIVE_INTEGER:
+            case StandardNames.XS_POSITIVE_INTEGER:
+            case StandardNames.XS_UNSIGNED_LONG:
+            case StandardNames.XS_UNSIGNED_INT:
+            case StandardNames.XS_UNSIGNED_SHORT:
+            case StandardNames.XS_UNSIGNED_BYTE:
+                return ((IntegerValue)primValue).validateAgainstSubType(this);
+            case StandardNames.XS_YEAR_MONTH_DURATION:
+            case StandardNames.XS_DAY_TIME_DURATION:
+                return null;  // treated as primitive
+            case StandardNames.XS_DATE_TIME_STAMP:
+                return (((CalendarValue)primValue).getTimezoneInMinutes() == CalendarValue.NO_TIMEZONE)
+                    ? new ValidationFailure("xs:dateTimeStamp value must have a timezone") : null;
+            case StandardNames.XS_NORMALIZED_STRING:
+            case StandardNames.XS_TOKEN:
+            case StandardNames.XS_LANGUAGE:
+            case StandardNames.XS_NAME:
+            case StandardNames.XS_NMTOKEN:
+            case StandardNames.XS_NCNAME:
+            case StandardNames.XS_ID:
+            case StandardNames.XS_IDREF:
+            case StandardNames.XS_ENTITY:
+                StringConverter sc = rules.getStringConverter(this);
+                return sc.validate(primValue.getStringValueCS());
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
+
+    /**
+     * Analyze an expression to see whether the expression is capable of delivering a value of this
+     * type.
+     *
+     * @param expression the expression that delivers the content
+     * @param kind       the node kind whose content is being delivered: {@link Type#ELEMENT},
+     *                   {@link Type#ATTRIBUTE}, or {@link Type#DOCUMENT}
+     * @param env        the static context
+     * @throws net.sf.saxon.trans.XPathException
+     *          if the expression will never deliver a value of the correct type
+     */
+
+    public void analyzeContentExpression(/*@NotNull*/ Expression expression, int kind, StaticContext env) throws XPathException {
+        analyzeContentExpression(this, expression, env, kind);
+    }
+
+    /**
+     * Analyze an expression to see whether the expression is capable of delivering a value of this
+     * type.
+     *
+     * @param simpleType the simple type against which the expression is to be checked
+     * @param expression the expression that delivers the content
+     * @param env        the static context of the expression
+     * @param kind       the node kind whose content is being delivered: {@link Type#ELEMENT},
+     *                   {@link Type#ATTRIBUTE}, or {@link Type#DOCUMENT}
+     * @throws net.sf.saxon.trans.XPathException
+     *          if the expression will never deliver a value of the correct type
+     */
+
+    public static void analyzeContentExpression(SimpleType simpleType, /*@NotNull*/ Expression expression, StaticContext env, int kind)
+            throws XPathException {
+        if (kind == Type.ELEMENT) {
+            expression.checkPermittedContents(simpleType, env, true);
+//            // if we are building the content of an element or document, no atomization will take
+//            // place, and therefore the presence of any element or attribute nodes in the content will
+//            // cause a validity error, since only simple content is allowed
+//            if (Type.isSubType(itemType, NodeKindTest.makeNodeKindTest(Type.ELEMENT))) {
+//                throw new XPathException("The content of an element with a simple type must not include any element nodes");
+//            }
+//            if (Type.isSubType(itemType, NodeKindTest.makeNodeKindTest(Type.ATTRIBUTE))) {
+//                throw new XPathException("The content of an element with a simple type must not include any attribute nodes");
+//            }
+        } else if (kind == Type.ATTRIBUTE) {
+            // for attributes, do a check only for text nodes and atomic values: anything else gets atomized
+            if (expression instanceof ValueOf || expression instanceof Literal) {
+                expression.checkPermittedContents(simpleType, env, true);
+            }
+        }
+    }
+
+    /**
+     * Internal factory method to create a BuiltInAtomicType. There is one instance for each of the
+     * built-in atomic types
+     *
+     * @param fingerprint The name of the type
+     * @param baseType    The base type from which this type is derived
+     * @return the newly constructed built in atomic type
+     */
+    /*@NotNull*/ private static BuiltInAtomicType makeAtomicType(int fingerprint, /*@NotNull*/ SimpleType baseType, boolean ordered) {
+        BuiltInAtomicType t = new BuiltInAtomicType(fingerprint);
+        t.setBaseTypeFingerprint(baseType.getFingerprint());
+        if (t.isPrimitiveType()) {
+            t.primitiveFingerprint = fingerprint;
+        } else {
+            t.primitiveFingerprint = ((AtomicType)baseType).getPrimitiveType();
+        }
+        t.ordered = ordered;
+        BuiltInType.register(fingerprint, t);
+        return t;
+    }
+
+    /**
+     * Apply any pre-lexical facets, other than whitespace. At the moment the only such
+     * facet is saxon:preprocess
+     * @param input the value to be preprocessed
+     * @return the value after preprocessing
+     */
+
+    public CharSequence preprocess(CharSequence input) {
+        return input;
+    }
+
+    /**
+     * Reverse any pre-lexical facets, other than whitespace. At the moment the only such
+     * facet is saxon:preprocess. This is called when converting a value of this type to
+     * a string
+     * @param input the value to be postprocessed: this is the "ordinary" result of converting
+     *              the value to a string
+     * @return the value after postprocessing
+     */
+
+    public CharSequence postprocess(CharSequence input) throws ValidationException {
+        return input;
+    }
+
+    /**
+     * Visit all the schema components used in this ItemType definition
+     * @param visitor the visitor class to be called when each component is visited
+     */
+
+    public void visitNamedSchemaComponents(SchemaComponentVisitor visitor) throws XPathException {
+        // no action
+    }
+
+    /**
+     * Get the list of plain types that are subsumed by this type
+     * @return for an atomic type, the type itself; for a plain union type, the list of plain types
+     * in its transitive membership, in declaration order
+     */
+    /*@NotNull*/ public Set<PlainType> getPlainMemberTypes() {
+        return new SingletonSet<PlainType>(this);
+    }
+
+    public double getDefaultPriority() {
+        int steps = -1;
+        AtomicType base = this;
+        while (base.getFingerprint() != StandardNames.XS_ANY_ATOMIC_TYPE) {
+            if (base.getFingerprint() != StandardNames.XS_NUMERIC) {
+                // don't count "numeric" because it doesn't officially exist
+                steps++;
+            }
+            base = (AtomicType)base.getBaseType();
+        }
+        return steps;
+    }
+
+    /**
+     * Ask whether a built-in type is a numeric type (integer, float, double)
+     */
+
+    public boolean isNumericType() {
+        ItemType p = getPrimitiveItemType();
+        return (p == BuiltInAtomicType.NUMERIC || p == BuiltInAtomicType.DECIMAL ||
+                p == BuiltInAtomicType.DOUBLE || p == BuiltInAtomicType.FLOAT ||
+                p == BuiltInAtomicType.INTEGER);
+    }
+
+
+}
+
